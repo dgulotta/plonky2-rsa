@@ -10,7 +10,7 @@ pub fn rsa_sign(value: &BigUint, private_key: &BigUint, modulus: &BigUint) -> Bi
     value.modpow(private_key, modulus)
 }
 
-fn pow_65537(
+pub fn pow_65537(
     builder: &mut CircuitBuilder<F, D>,
     value: &BigUintTarget,
     modulus: &BigUintTarget,
