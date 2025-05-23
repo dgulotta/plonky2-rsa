@@ -294,7 +294,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
 }
 
 #[derive(Debug)]
-struct ConditionalZeroGenerator<F: RichField + Extendable<D>, const D: usize> {
+pub struct ConditionalZeroGenerator<F: RichField + Extendable<D>, const D: usize> {
     if_zero: Target,
     then_zero: Target,
     quot: Target,
@@ -435,7 +435,7 @@ impl ReadBigUint for Buffer<'_> {
 }
 
 #[derive(Debug)]
-struct BigUintDivRemGenerator<F: RichField + Extendable<D>, const D: usize> {
+pub struct BigUintDivRemGenerator<F: RichField + Extendable<D>, const D: usize> {
     a: BigUintTarget,
     b: BigUintTarget,
     div: BigUintTarget,
