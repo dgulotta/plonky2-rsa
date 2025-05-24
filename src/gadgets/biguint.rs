@@ -157,24 +157,20 @@ fn conditional_zero<F: RichField + Extendable<D>, const D: usize>(
     builder.connect(prod, then_zero);
 }
 
-#[derive(Clone, Debug)]
-pub struct ConvolutionGate<F: RichField> {
-    phantom: PhantomData<F>,
-}
+pub struct ConvolutionGate;
 
-impl<F: RichField + Extendable<1>> SimpleGate for ConvolutionGate<F> {
+impl<F: RichField + Extendable<1>> SimpleGate<F> for ConvolutionGate {
     const ID: &'static str = "ConvolutionGate";
-    type F = F;
     const INPUTS_PER_OP: usize = 40;
     const OUTPUTS_PER_OP: usize = 40;
     const DEGREE: usize = 2;
     fn eval<const D: usize>(
-        wires: &[<Self::F as Extendable<D>>::Extension],
-    ) -> Vec<<Self::F as Extendable<D>>::Extension>
+        wires: &[<F as Extendable<D>>::Extension],
+    ) -> Vec<<F as Extendable<D>>::Extension>
     where
-        Self::F: Extendable<D>,
+        F: Extendable<D>,
     {
-        let mut output = vec![<Self::F as Extendable<D>>::Extension::ZERO; 40];
+        let mut output = vec![<F as Extendable<D>>::Extension::ZERO; 40];
         for i in 0..20 {
             for j in 0..20 {
                 output[i + j] += wires[i] * wires[j + 20];
