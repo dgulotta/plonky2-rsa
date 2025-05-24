@@ -78,7 +78,7 @@ pub trait CircuitBuilderBigUint<F: RichField + Extendable<D>, const D: usize, co
     fn le_biguint(&mut self, a: &BigUintTarget<BITS>, b: &BigUintTarget<BITS>) -> BoolTarget;
 }
 
-fn split_biguint<const BITS: usize>(x: &BigUint) -> Vec<u32> {
+pub fn split_biguint<const BITS: usize>(x: &BigUint) -> Vec<u32> {
     let n_limbs = x.bits().div_ceil(BITS as u64) as usize;
     let mut ans = Vec::with_capacity(n_limbs);
     let mut it = x.iter_u32_digits();
