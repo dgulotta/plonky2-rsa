@@ -11,6 +11,7 @@ num = { version = "0.4.3", features = ["num-bigint"] }
 num-bigint = "0.4.6"
 plonky2 = "1.1.0"
 plonky2_u32 = { git = "https://github.com/dgulotta/plonky2-u32.git" }
+plonky2_gate_utils = { git = "https://github.com/dgulotta/plonky2-gate-utils.git" }
 static_assertions = "1.1.0"
 
 [dev-dependencies]
