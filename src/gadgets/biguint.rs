@@ -291,7 +291,7 @@ impl<F: RichField + Extendable<D> + Extendable<1>, const D: usize, const BITS: u
         let mut limbs: Vec<_> = (0..num_limbs)
             .map(|i| {
                 let a_limb = a.limbs.get(i).copied().unwrap_or(zero);
-                let b_limb = a.limbs.get(i).copied().unwrap_or(zero);
+                let b_limb = b.limbs.get(i).copied().unwrap_or(zero);
                 self.add(a_limb, b_limb)
             })
             .collect();
@@ -585,5 +585,61 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
             quot: src.read_target()?,
             _phantom: PhantomData,
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use num::{BigUint, Integer};
+    use num_bigint::RandomBits;
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField,
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
+            config::PoseidonGoldilocksConfig,
+        },
+    };
+    use rand::{Rng, rngs::OsRng};
+
+    use super::{BigUintTarget, CircuitBuilderBigUint};
+
+    type F = GoldilocksField;
+    const D: usize = 2;
+    type C = PoseidonGoldilocksConfig;
+
+    #[test]
+    fn test_multiplication() -> anyhow::Result<()> {
+        let x = OsRng.sample(RandomBits::new(1024));
+        let y = OsRng.sample(RandomBits::new(1024));
+        let z = (&x) * (&y);
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
+        let x_t: BigUintTarget<28> = builder.constant_biguint(&x);
+        let y_t = builder.constant_biguint(&y);
+        let z_t = builder.constant_biguint(&z);
+        let prod_t = builder.mul_biguint(&x_t, &y_t);
+        builder.connect_biguint(&prod_t, &z_t);
+        let data = builder.build::<C>();
+        let proof = data.prove(PartialWitness::new())?;
+        data.verify(proof)
+    }
+
+    #[test]
+    fn test_modulus() -> anyhow::Result<()> {
+        let x: BigUint = OsRng.sample(RandomBits::new(8));
+        let y = OsRng.sample(RandomBits::new(4));
+        let (div, rem) = x.div_rem(&y);
+        println!("{x} {y} {div} {rem}");
+        let mut builder = CircuitBuilder::<F, D>::new(CircuitConfig::standard_recursion_config());
+        let x_t: BigUintTarget<28> = builder.constant_biguint(&x);
+        let y_t = builder.constant_biguint(&y);
+        let div_t_1 = builder.constant_biguint(&div);
+        let rem_t_1 = builder.constant_biguint(&rem);
+        let (div_t_2, rem_t_2) = builder.div_rem_biguint(&x_t, &y_t);
+        builder.connect_biguint(&div_t_1, &div_t_2);
+        builder.connect_biguint(&rem_t_1, &rem_t_2);
+        let data = builder.build::<C>();
+        let proof = data.prove(PartialWitness::new())?;
+        data.verify(proof)
     }
 }
