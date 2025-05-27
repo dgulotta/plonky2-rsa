@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use anyhow::anyhow;
 use num::{BigUint, Integer, Zero};
 use plonky2::{
     field::{
@@ -76,6 +77,12 @@ pub trait CircuitBuilderBigUint<F: RichField + Extendable<D>, const D: usize, co
         self.add_biguint(&prod, c)
     }
     fn le_biguint(&mut self, a: &BigUintTarget<BITS>, b: &BigUintTarget<BITS>) -> BoolTarget;
+    fn if_biguint(
+        &mut self,
+        condition: BoolTarget,
+        then_t: &BigUintTarget<BITS>,
+        else_t: &BigUintTarget<BITS>,
+    ) -> BigUintTarget<BITS>;
 }
 
 pub fn split_biguint<const BITS: usize>(x: &BigUint) -> Vec<u32> {
@@ -375,6 +382,23 @@ impl<F: RichField + Extendable<D> + Extendable<1>, const D: usize, const BITS: u
         let padded_b = pad_to(self, &b.limbs, padded_len);
         list_le_circuit(self, padded_a, padded_b, BITS)
     }
+
+    fn if_biguint(
+        &mut self,
+        condition: BoolTarget,
+        then_t: &BigUintTarget<BITS>,
+        else_t: &BigUintTarget<BITS>,
+    ) -> BigUintTarget<BITS> {
+        let l = then_t.num_limbs().max(else_t.num_limbs());
+        let limbs = (0..l)
+            .map(|i| {
+                let t1 = then_t.limbs.get(i).copied().unwrap_or_else(|| self.zero());
+                let t2 = else_t.limbs.get(i).copied().unwrap_or_else(|| self.zero());
+                self._if(condition, t1, t2)
+            })
+            .collect();
+        BigUintTarget { limbs }
+    }
 }
 
 pub trait ReadBigUint<const BITS: usize> {
@@ -489,6 +513,24 @@ impl<F: PrimeField, const BITS: usize> GeneratedValuesBigUint<F, BITS> for Gener
         Ok(())
     }
 }
+
+pub trait WitnessBigUintBool<F: PrimeField64>: Witness<F> {
+    fn set_bool_targets_from_biguint(
+        &mut self,
+        targets: &[BoolTarget],
+        value: &BigUint,
+    ) -> anyhow::Result<()> {
+        if value.bits() > targets.len() as u64 {
+            return Err(anyhow!("value does not fit in targets"));
+        }
+        for (i, &target) in targets.iter().enumerate() {
+            self.set_bool_target(target, value.bit(i as u64))?;
+        }
+        Ok(())
+    }
+}
+
+impl<T: Witness<F>, F: PrimeField64> WitnessBigUintBool<F> for T {}
 
 pub trait WitnessBigUint<F: PrimeField64, const BITS: usize>: Witness<F> {
     fn get_biguint_target(&self, target: BigUintTarget<BITS>) -> BigUint;

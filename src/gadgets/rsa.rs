@@ -1,7 +1,10 @@
-use num::BigUint;
-use plonky2::plonk::{
-    circuit_builder::CircuitBuilder,
-    config::{GenericConfig, PoseidonGoldilocksConfig},
+use num::{BigUint, One};
+use plonky2::{
+    iop::target::BoolTarget,
+    plonk::{
+        circuit_builder::CircuitBuilder,
+        config::{GenericConfig, PoseidonGoldilocksConfig},
+    },
 };
 
 use super::biguint::CircuitBuilderBigUint;
@@ -27,6 +30,24 @@ pub fn pow_65537(
     builder.rem_biguint(&tmp, modulus)
 }
 
+pub fn pow(
+    builder: &mut CircuitBuilder<F, D>,
+    value: &BigUintTarget,
+    exponent: &[BoolTarget],
+    modulus: &BigUintTarget,
+) -> BigUintTarget {
+    let one = builder.constant_biguint(&BigUint::one());
+    let mut ans = one.clone();
+    for digit in exponent.iter().rev() {
+        ans = builder.mul_biguint(&ans, &ans);
+        ans = builder.rem_biguint(&ans, modulus);
+        let factor = builder.if_biguint(*digit, value, &one);
+        ans = builder.mul_biguint(&ans, &factor);
+        ans = builder.rem_biguint(&ans, modulus);
+    }
+    ans
+}
+
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = <C as GenericConfig<D>>::F;
@@ -48,9 +69,10 @@ mod tests {
     use std::sync::LazyLock;
 
     use crate::gadgets::biguint::{
-        CircuitBuilderBigUint, CircuitBuilderBigUintFromField, WitnessBigUint,
+        CircuitBuilderBigUint, CircuitBuilderBigUintFromField, WitnessBigUint, WitnessBigUintBool,
     };
     use num::{BigUint, FromPrimitive, Num};
+    use num_bigint::RandomBits;
     use plonky2::field::goldilocks_field::GoldilocksField;
     use plonky2::field::types::Field64;
     use plonky2::hash::poseidon::PoseidonHash;
@@ -59,6 +81,8 @@ mod tests {
     use plonky2::iop::witness::{PartialWitness, WitnessWrite};
     use plonky2::plonk::circuit_builder::CircuitBuilder;
     use plonky2::plonk::circuit_data::CircuitConfig;
+    use rand::Rng;
+    use rand::rngs::OsRng;
 
     use super::{BITS, BigUintTarget};
 
@@ -121,6 +145,33 @@ mod tests {
         let (msg, s) = generate_message();
         pw.set_target_arr(&message, &msg)?;
         pw.set_biguint_target(&sig, &s)?;
+        let proof = data.prove(pw)?;
+        data.verify(proof)
+    }
+
+    #[test]
+    fn test_pow() -> anyhow::Result<()> {
+        let config = CircuitConfig::standard_recursion_config();
+        let num_len = 128usize.div_ceil(BITS);
+        let x: BigUint = OsRng.sample(RandomBits::new(128));
+        let m: BigUint = OsRng.sample(RandomBits::new(128));
+        let e: BigUint = BigUint::from_u32(35).unwrap();
+        let ans = x.modpow(&e, &m);
+        let mut builder = CircuitBuilder::<F, D>::new(config);
+        let x_t: BigUintTarget = builder.add_virtual_biguint_target(num_len);
+        let m_t: BigUintTarget = builder.add_virtual_biguint_target(num_len);
+        let e_t: Vec<_> = (0..6)
+            .map(|_| builder.add_virtual_bool_target_safe())
+            .collect();
+        let ans_t: BigUintTarget = builder.add_virtual_biguint_target(num_len);
+        let ans_circuit = pow(&mut builder, &x_t, &e_t, &m_t);
+        builder.connect_biguint(&ans_t, &ans_circuit);
+        let data = builder.build::<C>();
+        let mut pw = PartialWitness::new();
+        pw.set_biguint_target(&x_t, &x)?;
+        pw.set_biguint_target(&m_t, &m)?;
+        pw.set_bool_targets_from_biguint(&e_t, &e)?;
+        pw.set_biguint_target(&ans_t, &ans)?;
         let proof = data.prove(pw)?;
         data.verify(proof)
     }
