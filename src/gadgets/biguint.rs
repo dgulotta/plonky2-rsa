@@ -20,7 +20,7 @@ use plonky2::{
 use plonky2_gate_utils::SimpleGate;
 use plonky2_u32::gadgets::multiple_comparison::list_le_circuit;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BigUintTarget<const BITS: usize> {
     pub limbs: Vec<Target>,
 }
