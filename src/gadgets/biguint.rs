@@ -300,7 +300,7 @@ impl<F: RichField + Extendable<D> + Extendable<1>, const D: usize, const BITS: u
             .collect();
 
         for i in 0..num_limbs - 1 {
-            let [low, high] = limbs.get_disjoint_mut([i, i + 1]).unwrap();
+            let [low, high] = limbs.get_many_mut([i, i + 1]).unwrap();
             carry_mut(self, low, high, BITS, BITS + 1);
         }
         BigUintTarget { limbs }
@@ -322,7 +322,7 @@ impl<F: RichField + Extendable<D> + Extendable<1>, const D: usize, const BITS: u
     ) -> BigUintTarget<BITS> {
         let mut limbs = mul_karatsuba_no_carry(self, &a.limbs, &b.limbs);
         for i in 0..limbs.len() - 1 {
-            let [low, high] = limbs.get_disjoint_mut([i, i + 1]).unwrap();
+            let [low, high] = limbs.get_many_mut([i, i + 1]).unwrap();
             carry_mut(self, low, high, BITS, 63);
         }
         BigUintTarget { limbs }
