@@ -185,6 +185,22 @@ impl<F: RichField + Extendable<1>> SimpleGate<F> for ConvolutionGate {
         }
         output
     }
+    fn apply_ext<const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        targets: &[plonky2::iop::ext_target::ExtensionTarget<D>],
+    ) -> Vec<plonky2::iop::ext_target::ExtensionTarget<D>>
+    where
+        F: Extendable<D>,
+    {
+        let mut output = vec![builder.zero_extension(); 40];
+        for i in 0..20 {
+            for j in 0..20 {
+                output[i + j] =
+                    builder.mul_add_extension(targets[i], targets[j + 20], output[i + j]);
+            }
+        }
+        output
+    }
 }
 
 //fn sub_no_borrow<F: RichField + Extendable<D> + Extendable<1>>
@@ -241,7 +257,7 @@ fn mul_karatsuba_no_carry<F: RichField + Extendable<D> + Extendable<1>, const D:
         inputs.extend_from_slice(b);
         inputs.resize(40, builder.zero());
         let mut output = ConvolutionGate::apply(builder, &inputs);
-        output.resize_with(a.len() + b.len(), || unreachable!());
+        output.truncate(a.len() + b.len());
         output
     } else {
         let padded_a = pad_to(builder, a, padded_len);
@@ -632,15 +648,17 @@ mod test {
     use num_bigint::RandomBits;
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
+        gates::gate_testing::test_eval_fns,
         iop::witness::PartialWitness,
         plonk::{
             circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
             config::PoseidonGoldilocksConfig,
         },
     };
+    use plonky2_gate_utils::GateAdapter;
     use rand::{Rng, rngs::OsRng};
 
-    use super::{BigUintTarget, CircuitBuilderBigUint};
+    use super::{BigUintTarget, CircuitBuilderBigUint, ConvolutionGate};
 
     type F = GoldilocksField;
     const D: usize = 2;
@@ -679,5 +697,12 @@ mod test {
         let data = builder.build::<C>();
         let proof = data.prove(PartialWitness::new())?;
         data.verify(proof)
+    }
+
+    #[test]
+    fn test_recursion() -> anyhow::Result<()> {
+        let config = CircuitConfig::standard_recursion_config();
+        let gate = GateAdapter::<GoldilocksField, ConvolutionGate>::new_from_config(&config);
+        test_eval_fns::<_, PoseidonGoldilocksConfig, _, 2>(gate)
     }
 }
