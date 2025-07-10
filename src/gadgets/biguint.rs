@@ -4,7 +4,7 @@ use anyhow::anyhow;
 use num::{BigUint, Integer, Zero};
 use plonky2::{
     field::{
-        extension::Extendable,
+        extension::{Extendable, OEF},
         goldilocks_field::GoldilocksField,
         types::{Field, Field64, PrimeField, PrimeField64},
     },
@@ -166,18 +166,16 @@ fn conditional_zero<F: RichField + Extendable<D>, const D: usize>(
 
 pub struct ConvolutionGate;
 
-impl<F: RichField + Extendable<1>> SimpleGate<F> for ConvolutionGate {
+impl<F: RichField> SimpleGate<F> for ConvolutionGate {
     const ID: &'static str = "ConvolutionGate";
     const INPUTS_PER_OP: usize = 40;
     const OUTPUTS_PER_OP: usize = 40;
     const DEGREE: usize = 2;
-    fn eval<const D: usize>(
-        wires: &[<F as Extendable<D>>::Extension],
-    ) -> Vec<<F as Extendable<D>>::Extension>
+    fn eval<E, const D: usize>(wires: &[E]) -> Vec<E>
     where
-        F: Extendable<D>,
+        E: OEF<D, BaseField = F>,
     {
-        let mut output = vec![<F as Extendable<D>>::Extension::ZERO; 40];
+        let mut output = vec![E::ZERO; 40];
         for i in 0..20 {
             for j in 0..20 {
                 output[i + j] += wires[i] * wires[j + 20];
@@ -202,8 +200,6 @@ impl<F: RichField + Extendable<1>> SimpleGate<F> for ConvolutionGate {
         output
     }
 }
-
-//fn sub_no_borrow<F: RichField + Extendable<D> + Extendable<1>>
 
 fn pad_to<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
@@ -245,7 +241,7 @@ fn sub_no_carry<F: RichField + Extendable<D>, const D: usize>(
         .collect()
 }
 
-fn mul_karatsuba_no_carry<F: RichField + Extendable<D> + Extendable<1>, const D: usize>(
+fn mul_karatsuba_no_carry<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     a: &[Target],
     b: &[Target],
@@ -285,7 +281,7 @@ fn mul_karatsuba_no_carry<F: RichField + Extendable<D> + Extendable<1>, const D:
     }
 }
 
-impl<F: RichField + Extendable<D> + Extendable<1>, const D: usize, const BITS: usize>
+impl<F: RichField + Extendable<D>, const D: usize, const BITS: usize>
     CircuitBuilderBigUint<F, D, BITS> for CircuitBuilder<F, D>
 {
     fn add_virtual_biguint_target(&mut self, n_limbs: usize) -> BigUintTarget<BITS> {

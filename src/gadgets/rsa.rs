@@ -138,7 +138,7 @@ mod tests {
         let message = builder.add_virtual_targets(10);
         let hash = hash(&mut builder, &message);
         let sig: BigUintTarget = builder.add_virtual_biguint_target(2048usize.div_ceil(BITS));
-        let modulus: BigUintTarget = builder.constant_biguint(&*MODULUS);
+        let modulus: BigUintTarget = builder.constant_biguint(&MODULUS);
         verify_sig(&mut builder, &hash, &sig, &modulus);
         let data = builder.build::<C>();
         let mut pw = PartialWitness::new();
